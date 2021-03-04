@@ -4,6 +4,7 @@ from dn3.data.dataset import Dataset
 from model import AdaptiveInputNormEEGNet
 from dn3.trainable.models import EEGNet
 from first_diff import FirstDifference
+from processes import MultipleParamGroupClassification
 from dn3.transforms.instance import ZScore
 import mne
 import torch
@@ -21,17 +22,19 @@ def make_model_and_process(args, dataset: Dataset, ds_config: DatasetConfig) -> 
     """
     Return the classifier process from the arguments given.
     """
+    cuda_setting = not args.no_cuda and torch.cuda.is_available()
     if args.input_norm_method.lower() == "dain":
         kwargs = {
             "feat_dim": len(dataset.channels),
             "start_gate_iter": args.start_gate_iter
         }
         model = AdaptiveInputNormEEGNet.from_dataset(dataset, **kwargs)
+        process = MultipleParamGroupClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     else:
         model = EEGNet.from_dataset(dataset)
+        process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
 
-    cuda_setting = not args.no_cuda and torch.cuda.is_available()
-    return StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
+    return process
 
 
 def main(args: Namespace) -> None:
@@ -56,16 +59,15 @@ def main(args: Namespace) -> None:
             training_dataset=training, validation_dataset=validation, **ds_config.train_params)
 
         accuracy = process.evaluate(test)["Accuracy"]
+        results.append(accuracy)
         if not args.run_all:
-            with open(f"{os.path.join(args.save_dir, args.save_name)}_train.csv") as f:
+            with open(f"{os.path.join(args.save_dir, args.save_name)}_train.csv", "w+") as f:
                 train_metrics.to_csv(f)
 
-            with open(f"{os.path.join(args.save_dir, args.save_name)}_val.csv") as f:
+            with open(f"{os.path.join(args.save_dir, args.save_name)}_val.csv", "w+") as f:
                 val_metrics.to_csv(f)
 
             break
-        else:
-            results.append(accuracy)
 
     print(f"Average accuracy: {sum(results) / len(results):.2f}")
 
@@ -88,6 +90,6 @@ if __name__ == "__main__":
         cmd_args.save_dir = os.path.abspath(".")
 
     if cmd_args.save_name is None:
-        cmd_args.save_dir = cmd_args.input_norm_method
+        cmd_args.save_name = cmd_args.input_norm_method
 
     main(cmd_args)

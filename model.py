@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from typing import Tuple
 from dn3.trainable.models import EEGNet as DN3EEGNet
-from adaptive_normalization import AdaptiveInputNorm
+from adaptive_normalization import AdaptiveInputNorm, DAIN_Layer
 
 
 def get_padding_sequence(channels, timepoints, f_height, f_width) -> Tuple[int, int, int, int]:
@@ -168,7 +168,7 @@ class SeparableConv2d(nn.Module):
         return self.point_conv(self.spatial_conv(x))
 
 
-class AdaptiveInputNormEEGNet(DN3EEGNet):
+class AdaptiveInputNormEEGNet(nn.Module):
     """
     EEGNet with a layer of learned normalization.
     """
@@ -177,11 +177,12 @@ class AdaptiveInputNormEEGNet(DN3EEGNet):
         """
         Initializes an EEGNet instance.
         """
-        super(AdaptiveInputNormEEGNet, self).__init__(
-            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+        super(AdaptiveInputNormEEGNet, self).__init__()
 
-        self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)
+        # self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)
+        self.model = DN3EEGNet(targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+        self.adaptive_input_norm = DAIN_Layer(mode="full", input_dim=feat_dim)
 
-    def features_forward(self, x):
+    def forward(self, x):
         x = self.adaptive_input_norm(x)
-        return super().features_forward(x)
+        return self.model(x)
