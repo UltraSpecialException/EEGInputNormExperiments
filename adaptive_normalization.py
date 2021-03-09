@@ -30,21 +30,23 @@ class AdaptiveInputNorm(nn.Module):
         shifter = self.shift(feat_avg_over_time)
         shifted_inputs = inputs - shifter.unsqueeze(2)
 
-        feat_std_over_time = (shifted_inputs ** 2).mean(dim=2)
-        scaler = self.scale(feat_std_over_time)
-        shifted_scaled_inputs = shifted_inputs / scaler.unsqueeze(2)
+        return shifted_inputs
 
-        if self.curr_iter >= self.start_gate_iter:
-            shifted_scaled_summary = shifted_scaled_inputs.mean(dim=2)
-            gate = torch.sigmoid(self.gate(shifted_scaled_summary))
-
-            normed_inputs = shifted_scaled_inputs * gate.unsqueeze(2)
-        else:
-            normed_inputs = shifted_scaled_inputs
-
-        self.curr_iter += 1
-
-        return normed_inputs
+        # feat_std_over_time = (shifted_inputs ** 2).mean(dim=2)
+        # scaler = self.scale(feat_std_over_time)
+        # shifted_scaled_inputs = shifted_inputs / scaler.unsqueeze(2)
+        #
+        # if self.curr_iter >= self.start_gate_iter:
+        #     shifted_scaled_summary = shifted_scaled_inputs.mean(dim=2)
+        #     gate = torch.sigmoid(self.gate(shifted_scaled_summary))
+        #
+        #     normed_inputs = shifted_scaled_inputs * gate.unsqueeze(2)
+        # else:
+        #     normed_inputs = shifted_scaled_inputs
+        #
+        # self.curr_iter += 1
+        #
+        # return normed_inputs
 
 
 class DAIN_Layer(nn.Module):

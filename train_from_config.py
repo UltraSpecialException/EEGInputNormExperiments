@@ -29,6 +29,9 @@ def make_model_and_process(args, dataset: Dataset, ds_config: DatasetConfig) -> 
             "start_gate_iter": args.start_gate_iter
         }
         model = AdaptiveInputNormEEGNet.from_dataset(dataset, **kwargs)
+        process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
+    elif args.input_norm_method.lower() == "dain_author":
+        model = AdaptiveInputNormEEGNet.from_dataset(dataset)
         process = MultipleParamGroupClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     else:
         model = EEGNet.from_dataset(dataset)
@@ -76,7 +79,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--config_filename", required=True, help="Path to config file to load", type=str)
     parser.add_argument("--input_norm_method", help="Type of input normalization",
-                        choices=["zscore", "firstdifference", "dain"], type=str, default="dain")
+                        choices=["zscore", "firstdifference", "dain_author", "dain"], type=str, default="dain")
     parser.add_argument("--no_cuda", help="Disable CUDA training", action="store_true")
     parser.add_argument("--start_gate_iter", help="The iteration number to start gating in DAIN normalization",
                         type=int, default=3000)

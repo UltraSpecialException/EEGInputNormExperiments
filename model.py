@@ -168,7 +168,7 @@ class SeparableConv2d(nn.Module):
         return self.point_conv(self.spatial_conv(x))
 
 
-class AdaptiveInputNormEEGNet(nn.Module):
+class AdaptiveInputNormEEGNet(DN3EEGNet):
     """
     EEGNet with a layer of learned normalization.
     """
@@ -177,12 +177,27 @@ class AdaptiveInputNormEEGNet(nn.Module):
         """
         Initializes an EEGNet instance.
         """
-        super(AdaptiveInputNormEEGNet, self).__init__()
+        super(AdaptiveInputNormEEGNet, self).__init__(
+            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
 
-        # self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)
-        self.model = DN3EEGNet(targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+        self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)
+
+    def features_forward(self, x):
+        x = self.adaptive_input_norm(x)
+        return super().features_forward(x)
+
+
+class AdaptiveInputNormEEGNetAuthorDAIN(DN3EEGNet):
+    def __init__(self, feat_dim: int, targets, samples, channels, do=0.25, pooling=8, F1=8, D=2,
+                 t_len=65, F2=16, return_features=False) -> None:
+        """
+        Initializes an EEGNet instance.
+        """
+        super(AdaptiveInputNormEEGNetAuthorDAIN, self).__init__(
+            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+
         self.adaptive_input_norm = DAIN_Layer(mode="full", input_dim=feat_dim)
 
-    def forward(self, x):
+    def features_forward(self, x):
         x = self.adaptive_input_norm(x)
-        return self.model(x)
+        return super().features_forward(x)
