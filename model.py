@@ -191,13 +191,13 @@ class AdaptiveInputNormTIDNet(TIDNet):
     """
     EEGNet with a layer of learned normalization.
     """
-    def __init__(self, feat_dim: int, start_gate_iter: int, targets, samples, channels, do=0.25, pooling=8, F1=8, D=2,
-                 t_len=65, F2=16, return_features=False) -> None:
+    def __init__(self, feat_dim: int, start_gate_iter: int, targets, samples, channels, do=0.4, pooling=20,
+                 t_filters=65, return_features=False) -> None:
         """
         Initializes an EEGNet instance.
         """
         super(AdaptiveInputNormTIDNet, self).__init__(
-            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+            targets, samples, channels, do=do, pooling=pooling, t_filters=t_filters, return_features=return_features)
 
         self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)
 
