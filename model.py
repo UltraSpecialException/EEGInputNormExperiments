@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from typing import Tuple
-from dn3.trainable.models import EEGNet as DN3EEGNet
+from dn3.trainable.models import EEGNet as DN3EEGNet, TIDNet
 from adaptive_normalization import AdaptiveInputNorm, DAIN_Layer
 
 
@@ -178,6 +178,25 @@ class AdaptiveInputNormEEGNet(DN3EEGNet):
         Initializes an EEGNet instance.
         """
         super(AdaptiveInputNormEEGNet, self).__init__(
+            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+
+        self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)
+
+    def features_forward(self, x):
+        x = self.adaptive_input_norm(x)
+        return super().features_forward(x)
+
+
+class AdaptiveInputNormTIDNet(TIDNet):
+    """
+    EEGNet with a layer of learned normalization.
+    """
+    def __init__(self, feat_dim: int, start_gate_iter: int, targets, samples, channels, do=0.25, pooling=8, F1=8, D=2,
+                 t_len=65, F2=16, return_features=False) -> None:
+        """
+        Initializes an EEGNet instance.
+        """
+        super(AdaptiveInputNormTIDNet, self).__init__(
             targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
 
         self.adaptive_input_norm = AdaptiveInputNorm(feat_dim, start_gate_iter)

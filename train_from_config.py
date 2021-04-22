@@ -1,7 +1,7 @@
 from dn3.configuratron import ExperimentConfig, DatasetConfig
 from dn3.trainable.processes import StandardClassification
 from dn3.data.dataset import Dataset
-from model import AdaptiveInputNormEEGNet
+from model import AdaptiveInputNormEEGNet, AdaptiveInputNormTIDNet
 from dn3.trainable.models import EEGNet, TIDNet
 from first_diff import FirstDifference, BrownianMotion, StepEWMZScore
 from normalizations import FixedScale, ZScore
@@ -31,7 +31,11 @@ def make_model_and_process(args, dataset: Dataset, ds_config: DatasetConfig) -> 
             "feat_dim": len(dataset.channels),
             "start_gate_iter": args.start_gate_iter
         }
-        model = AdaptiveInputNormEEGNet.from_dataset(dataset, **kwargs)
+        if args.model_type == "tid":
+            model = AdaptiveInputNormTIDNet.from_dataset(dataset, **kwargs)
+        else:
+            model = AdaptiveInputNormEEGNet.from_dataset(dataset, **kwargs)
+            
         process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     elif args.input_norm_method.lower() == "dain_author":
         model = AdaptiveInputNormEEGNet.from_dataset(dataset)
