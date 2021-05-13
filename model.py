@@ -5,6 +5,7 @@ import numpy as np
 from typing import Tuple
 from dn3.trainable.models import EEGNet as DN3EEGNet, TIDNet
 from adaptive_normalization import AdaptiveInputNorm, DAIN_Layer
+from surface_laplacian import get_laplacian_filter, generate_adjacency_matrix_d2
 
 
 def get_padding_sequence(channels, timepoints, f_height, f_width) -> Tuple[int, int, int, int]:
@@ -177,6 +178,7 @@ class AdaptiveInputNormEEGNet(DN3EEGNet):
         """
         Initializes an EEGNet instance.
         """
+        print("Init AdaptiveInputNormEEGNet")
         super(AdaptiveInputNormEEGNet, self).__init__(
             targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
 
@@ -218,5 +220,22 @@ class AdaptiveInputNormEEGNetAuthorDAIN(DN3EEGNet):
         self.adaptive_input_norm = DAIN_Layer(mode="full", input_dim=feat_dim)
 
     def features_forward(self, x):
+        print(x)
         x = self.adaptive_input_norm(x)
         return super().features_forward(x)
+
+
+class SurfaceLaplacianEEGNet(DN3EEGNet):
+    def __init__(self, targets, samples, channels, do=0.25, pooling=8, F1=8, D=2, t_len=65, F2=16,
+                 return_features=False) -> None:
+        """
+        Initializes an EEGNet instance.
+        """
+        super(SurfaceLaplacianEEGNet, self).__init__(
+            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+
+        self.surface_laplacian = get_laplacian_filter(generate_adjacency_matrix_d2())
+        self.surface_laplacian = self.surface_laplacian.view(1, *self.surface_laplacian.size())
+
+    def features_forward(self, x):
+        return super().features_forward(self.surface_laplacian @ x)

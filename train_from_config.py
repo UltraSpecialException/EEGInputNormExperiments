@@ -1,7 +1,7 @@
 from dn3.configuratron import ExperimentConfig, DatasetConfig
 from dn3.trainable.processes import StandardClassification
 from dn3.data.dataset import Dataset
-from model import AdaptiveInputNormEEGNet, AdaptiveInputNormTIDNet
+from model import AdaptiveInputNormEEGNet, AdaptiveInputNormTIDNet, SurfaceLaplacianEEGNet
 from dn3.trainable.models import EEGNet, TIDNet
 from first_diff import FirstDifference, BrownianMotion, StepEWMZScore
 from normalizations import FixedScale, ZScore
@@ -34,12 +34,16 @@ def make_model_and_process(args, dataset: Dataset, ds_config: DatasetConfig) -> 
         if args.model_type == "tid":
             model = AdaptiveInputNormTIDNet.from_dataset(dataset, **kwargs)
         else:
+            print("Creating Adaptive Input Norm EEG Model")
             model = AdaptiveInputNormEEGNet.from_dataset(dataset, **kwargs)
-            
+
         process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     elif args.input_norm_method.lower() == "dain_author":
         model = AdaptiveInputNormEEGNet.from_dataset(dataset)
         process = MultipleParamGroupClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
+    elif args.surface_laplacian:
+        model = SurfaceLaplacianEEGNet.from_dataset(dataset)
+        process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     else:
         model = args.model.from_dataset(dataset)
         process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
@@ -102,15 +106,17 @@ if __name__ == "__main__":
     parser.add_argument("--task_name", help="Name of task being ran e.g. sleep, hands, etc.", type=str)
     parser.add_argument("--dataset_name", help="Name of dataset to query", type=str, default="mmidb")
     parser.add_argument("--model_type", help="One of EEG or TID", choices=["tid", "eeg"], default="eeg", type=str)
+    parser.add_argument("--surface_laplacian", help="Whether or not to use surface Laplacian filter",
+                        action="store_true")
 
     cmd_args = parser.parse_args()
 
     if cmd_args.save_dir == ".":
         cmd_args.save_dir = os.path.abspath(".")
 
-    if cmd_args.save_name is None:
-        cmd_args.save_name = f"{cmd_args.task_name}_{cmd_args.input_norm_method}"
-
     cmd_args.model = EEGNet if cmd_args.model_type.lower() == "eeg" else TIDNet
+
+    if cmd_args.save_name is None:
+        cmd_args.save_name = f"{cmd_args.task_name}_{cmd_args.input_norm_method}_{cmd_args.model_type}_{cmd_args.dataset_name}"
 
     main(cmd_args)
