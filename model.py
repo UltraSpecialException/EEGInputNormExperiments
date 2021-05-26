@@ -243,7 +243,7 @@ class SurfaceLaplacianEEGNet(DN3EEGNet):
         return super().features_forward(self.surface_laplacian @ x)
 
 
-class LearnedSLEEGNet(DN3EEGNet, InstanceTransform):
+class LearnedSLEEGNet(DN3EEGNet):
     def __init__(self, targets, samples, channels, do=0.25, pooling=8, F1=8, D=2, t_len=65, F2=16,
                  return_features=False, cuda=False, convolve=False, kernel_size=8, temperature=0.1) -> None:
         """
@@ -254,18 +254,15 @@ class LearnedSLEEGNet(DN3EEGNet, InstanceTransform):
 
         self.convolve = convolve
         self.temperature = temperature
+        device = "cuda" if cuda else "cpu"
 
         if convolve:
-            self.surface_laplacian = nn.Parameter(torch.randn(channels, channels, kernel_size))
-            self.mask = torch.eye(channels, dtype=torch.bool).unsqueeze(2).repeat(1, 1, kernel_size)
+            self.surface_laplacian = nn.Parameter(torch.randn(channels, channels, kernel_size, device=device))
+            self.mask = torch.eye(channels, dtype=torch.bool, device=device).unsqueeze(2).repeat(1, 1, kernel_size)
 
         else:
-            self.surface_laplacian = nn.Parameter(torch.randn(1, channels, channels))
-            self.mask = torch.eye(channels, dtype=torch.bool)
-
-        if cuda:
-            self.surface_laplacian = self.surface_laplacian.cuda()
-            self.mask = self.mask.cuda()
+            self.surface_laplacian = nn.Parameter(torch.randn(1, channels, channels, device=device))
+            self.mask = torch.eye(channels, dtype=torch.bool, device=device)
 
     def filter(self, x, weights):
         if self.convolve:
