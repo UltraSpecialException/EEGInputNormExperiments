@@ -4,8 +4,10 @@ import torch.nn.functional as F
 import numpy as np
 from typing import Tuple
 from dn3.trainable.models import EEGNet as DN3EEGNet, TIDNet
+from dn3.data.dataset import DN3ataset
 from adaptive_normalization import AdaptiveInputNorm, DAIN_Layer
 from surface_laplacian import get_laplacian_filter, generate_adjacency_matrix_d2
+from dn3.transforms.instance import InstanceTransform
 
 
 def get_padding_sequence(channels, timepoints, f_height, f_width) -> Tuple[int, int, int, int]:
@@ -239,3 +241,60 @@ class SurfaceLaplacianEEGNet(DN3EEGNet):
 
     def features_forward(self, x):
         return super().features_forward(self.surface_laplacian @ x)
+
+
+class LearnedSLEEGNet(DN3EEGNet, InstanceTransform):
+    def __init__(self, targets, samples, channels, do=0.25, pooling=8, F1=8, D=2, t_len=65, F2=16,
+                 return_features=False, cuda=False, convolve=False, kernel_size=8, temperature=0.1) -> None:
+        """
+        Initializes an EEGNet instance.
+        """
+        super(LearnedSLEEGNet, self).__init__(
+            targets, samples, channels, do, pooling, F1, D, t_len, F2, return_features)
+
+        self.convolve = convolve
+        self.temperature = temperature
+
+        if convolve:
+            self.surface_laplacian = nn.Parameter(torch.randn(channels, channels, kernel_size))
+            self.mask = torch.eye(channels, dtype=torch.bool).unsqueeze(2).repeat(1, 1, kernel_size)
+
+        else:
+            self.surface_laplacian = nn.Parameter(torch.randn(1, channels, channels))
+            self.mask = torch.eye(channels, dtype=torch.bool)
+
+        if cuda:
+            self.surface_laplacian = self.surface_laplacian.cuda()
+            self.mask = self.mask.cuda()
+
+    def filter(self, x, weights):
+        if self.convolve:
+            weights = (weights / self.temperature).softmax(dim=-1)
+            return F.conv1d(x, weights)
+        else:
+            return x - weights @ x
+
+    def features_forward(self, x):
+        return super().features_forward(self.filter(x, self.surface_laplacian.masked_fill(self.mask, 0)))
+
+    @classmethod
+    def from_dataset(cls, dataset, **modelargs):
+        if modelargs["convolve"]:
+            l_in = dataset.sequence_length
+            kernel_size = modelargs["kernel_size"]
+            new_sequence_length = l_in - 1 * (kernel_size - 1)
+            targets = dataset.info.targets if dataset.info is not None and isinstance(dataset.info.targets, int) else 2
+            modelargs.setdefault('targets', targets)
+            print("Creating {} using: {} channels x {} samples at {}Hz | {} targets".format(cls.__name__,
+                                                                                            len(dataset.channels),
+                                                                                            new_sequence_length,
+                                                                                            dataset.sfreq,
+                                                                                            modelargs['targets']))
+            print(f"Kernel size: {kernel_size}. Temperature: {modelargs['temperature']}")
+            assert isinstance(dataset, DN3ataset)
+            return cls(samples=new_sequence_length, channels=len(dataset.channels), **modelargs)
+        else:
+            return super().from_dataset(dataset, **modelargs)
+
+
+

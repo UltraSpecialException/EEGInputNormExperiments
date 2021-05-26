@@ -1,7 +1,7 @@
 from dn3.configuratron import ExperimentConfig, DatasetConfig
 from dn3.trainable.processes import StandardClassification
 from dn3.data.dataset import Dataset
-from model import AdaptiveInputNormEEGNet, AdaptiveInputNormTIDNet, SurfaceLaplacianEEGNet
+from model import AdaptiveInputNormEEGNet, AdaptiveInputNormTIDNet, LearnedSLEEGNet
 from dn3.trainable.models import EEGNet, TIDNet
 from first_diff import FirstDifference, BrownianMotion, StepEWMZScore
 from normalizations import FixedScale, ZScore
@@ -42,7 +42,11 @@ def make_model_and_process(args, dataset: Dataset, ds_config: DatasetConfig) -> 
         model = AdaptiveInputNormEEGNet.from_dataset(dataset)
         process = MultipleParamGroupClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     elif args.surface_laplacian:
-        model = SurfaceLaplacianEEGNet.from_dataset(dataset)
+        if args.sl_mode == "normal":
+            model = LearnedSLEEGNet.from_dataset(dataset, cuda=cuda_setting)
+        else:
+            model = LearnedSLEEGNet.from_dataset(dataset, cuda=cuda_setting, convolve=True,
+                                                 kernel_size=args.kernel_size, temperature=args.temperature)
         process = StandardClassification(model, cuda=cuda_setting, learning_rate=ds_config.lr)
     else:
         model = args.model.from_dataset(dataset)
@@ -108,6 +112,10 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", help="One of EEG or TID", choices=["tid", "eeg"], default="eeg", type=str)
     parser.add_argument("--surface_laplacian", help="Whether or not to use surface Laplacian filter",
                         action="store_true")
+    parser.add_argument("--sl_mode", help="The mode for surface Laplacian filter", default="normal",
+                        choices=["normal", "convolve"], type=str)
+    parser.add_argument("--kernel_size", help="The kernel size for when SL mode is convolve", default=8, type=int)
+    parser.add_argument("--temperature", help="Softmax temperature for when SL mode is convolve", default=0.1, type=float)
 
     cmd_args = parser.parse_args()
 
